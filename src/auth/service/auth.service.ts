@@ -57,50 +57,67 @@ export class AuthService {
   }
 
   async login(loginProfile: ValidatedProfileDto): Promise<LoginRes> {
-    const user = await this.loginProfileService.findOne({ where: { userName: loginProfile.username } })
-    let conID = 0;
-    if (!user.coutryId) {
-      user.coutryId = 1;
-      user.insId = 1;
-      conID = 0;
-    }
-    else {
-      conID = user.coutryId
-    }
-    let fullUrl = process.env.MAIN_HOST +'/country/country1?countryId=' + user.coutryId;
-    const country = await (await this.httpService.get(fullUrl).toPromise()).data;
-    let sec = new Array();
-    for await (let s of country.countrysector) {
-      sec.push(s.id)
-    }
-    const payload = {
-      username: loginProfile.username,
-      sub: loginProfile.id,
-      role: loginProfile.roles,
-      countryId: conID,
-      insId: user.insId,
-      sectorId: sec,
-    };
 
 
-    if (user.isEmailConfirmed) {
-      return {
-        accessToken: this.getAcceesToken(payload),
-        refreshToken: this.getRefreshToken(payload),
-        loginProfileId: loginProfile.id,
-        roles: loginProfile.roles,
-        isEmailConfirmed: user.isEmailConfirmed
+    try {
+      const user = await this.loginProfileService.findOne({ where: { userName: loginProfile.username } });
+      let conID = 0;
+      if (!user.coutryId) {
+        user.coutryId = 1;
+        user.insId = 1;
+        conID = 0;
+      }
+      else {
+        conID = user.coutryId
+      }
+
+
+
+      let fullUrl =process.env.MAIN_HOST+ '/country/country1?countryId=' + user.coutryId;
+      let sec = new Array();
+      const country = await (await this.httpService.get(fullUrl).toPromise()).data;
+
+      if (country.countrysector.length > 0) {
+        for await (let s of country.countrysector) {
+          sec.push(s.id)
+        }
+      }
+
+
+      const payload = {
+        username: loginProfile.username,
+        sub: loginProfile.id,
+        role: loginProfile.roles,
+        countryId: conID,
+        insId: user.insId,
+        sectorId: sec,
       };
+
+
+      if (user.isEmailConfirmed) {
+        return {
+          accessToken: this.getAcceesToken(payload),
+          refreshToken: this.getRefreshToken(payload),
+          loginProfileId: loginProfile.id,
+          roles: loginProfile.roles,
+          isEmailConfirmed: user.isEmailConfirmed
+        };
+      }
+      else {
+        return {
+          accessToken: '',
+          refreshToken: '',
+          loginProfileId: '',
+          roles: loginProfile.roles,
+          isEmailConfirmed: user.isEmailConfirmed
+        };
+      }
     }
-    else {
-      return {
-        accessToken: '',
-        refreshToken: '',
-        loginProfileId: '',
-        roles: loginProfile.roles,
-        isEmailConfirmed: user.isEmailConfirmed
-      };
+    catch (error) {
+      console.log(error)
+      throw new InternalServerErrorException(error);
     }
+
 
 
   }
